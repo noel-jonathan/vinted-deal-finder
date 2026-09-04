@@ -89,6 +89,8 @@ class GeminiDealAnalyzer:
         if self.api_key:
             try:
                 from google import genai
+                # Suppress benign SDK-level AFC advisory warnings
+                logging.getLogger("google_genai").setLevel(logging.ERROR)
                 self.client = genai.Client(api_key=self.api_key)
                 logger.info(f"Gemini client initialized with model '{self.model}'.")
             except ImportError:

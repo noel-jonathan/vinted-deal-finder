@@ -47,6 +47,9 @@ def setup_logging(verbose: bool = False):
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+    # Silence benign third-party SDK warnings (e.g. google-genai AFC warning)
+    logging.getLogger("google_genai").setLevel(logging.ERROR)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def display_results_table(deals: List[AnalyzedItem], min_score: int):
