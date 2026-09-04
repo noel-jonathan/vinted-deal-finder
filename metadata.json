@@ -1,0 +1,7 @@
+{
+  "name": "Vinted Deal Hunter & Gemini AI Analyzer",
+  "description": "Production-ready Python application scraping Vinted product listings and utilizing Google Gemini 2.5 Flash to detect underpriced secondhand deals, evaluate profit margins, and rank items.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

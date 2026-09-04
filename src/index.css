@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+body {
+  background-color: #050507;
+  color: #e0e0e0;
+}
+
+.bg-dot-grid {
+  background-image: radial-gradient(rgba(79, 70, 229, 0.18) 0.5px, transparent 0.5px);
+  background-size: 20px 20px;
+}
+
