@@ -326,10 +326,10 @@ class GeminiDealAnalyzer:
     DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     SYSTEM_INSTRUCTION = (
-        "You are an expert vintage and secondhand fashion appraiser and deal hunter. "
-        "Your task is to analyze Vinted secondhand clothing and footwear listings, accurately estimate "
-        "their true secondary market resale value (e.g., on eBay, Grailed, Depop, or Vinted), "
-        "and calculate whether the listed price represents an extraordinary bargain."
+        "You are an expert professional secondhand appraiser across consumer electronics (smartphones, audio, consoles) "
+        "and vintage fashion. Estimate realistic secondary market value based on actual peer-to-peer completed sales (eBay sold, CeX used). "
+        "CRITICAL: Never use brand-new retail MSRP. Secondhand flagship smartphones trade 35-55% below original retail (e.g. used Pixel 9 Pro 256GB is ~440-520 GBP, not 700+ GBP). "
+        "Accessories (cases, cables) hold negligible resale value (2-8 GBP). Always err on the conservative side."
     )
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
@@ -357,12 +357,12 @@ Appraise the following Vinted listing:
 - Seller Description: \"\"\"{item.description}\"\"\"
 
 Perform a professional appraisal:
-1. Estimate true fair secondary market value in {item.currency}.
+1. Estimate true fair secondary market value in {item.currency} (DO NOT use retail MSRP; use real used comps. Accessories value 2-8 {item.currency}).
 2. Rate deal score 1-10 (9-10: Steal, 7-8: Good deal, 5-6: Fair, 1-4: Overpriced).
-3. Identify condition notes (mention any wear, stains, or clean condition).
+3. Identify condition notes (mention any wear, battery/screen marks, or clean condition).
 4. Calculate net resale profit margin (Market - Price - 12% fees).
 5. Choose verdict: MUST BUY, GOOD DEAL, FAIR PRICE, or OVERPRICED.
-6. Provide a concise 1-2 sentence reasoning.
+6. Provide a concise 1-2 sentence reasoning with comp context.
 """
 
         for attempt in range(1, 4):

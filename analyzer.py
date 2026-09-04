@@ -65,14 +65,25 @@ class GeminiDealAnalyzer:
     DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     SYSTEM_INSTRUCTION = (
-        "You are an expert vintage and secondhand fashion appraiser, reseller, and deal hunter. "
-        "Your task is to analyze Vinted secondhand clothing and footwear listings, accurately estimate "
-        "their true secondary market resale value (e.g., on eBay, Grailed, Depop, or Vinted), "
-        "and calculate whether the listed price represents an extraordinary bargain. "
-        "Analyze the brand equity, item desirability, materials, vintage provenance, size desirability, "
-        "and scrutinize the description for subtle flaws, stains, fraying, missing accessories, or wear. "
-        "Calculate estimated resale profit margin conservatively (assume standard ~12% fees and postage). "
-        "Be rigorous, realistic, and objective: do not inflate scores for generic or low-demand fast fashion."
+        "You are an expert professional secondhand goods appraiser, reseller, and deal hunter across "
+        "consumer electronics (smartphones, audio, laptops, gaming consoles), vintage fashion, and streetwear. "
+        "Your task is to analyze Vinted secondhand listings, accurately estimate their realistic secondary "
+        "market value (based on actual completed peer-to-peer sales, e.g. eBay 'Sold' listings, CeX used sales, "
+        "Swappa, and Vinted comps), and assess whether the listing represents a genuine bargain.\n\n"
+        "CRITICAL PRICING RULES:\n"
+        "1. NEVER USE BRAND NEW RETAIL MSRP: A used/secondhand item is never worth its original launch price.\n"
+        "2. CONSUMER ELECTRONICS & SMARTPHONES: Flagship smartphones (Google Pixel, Apple iPhone, Samsung Galaxy) "
+        "depreciate rapidly once opened/used. 1-year-old flagship phones typically trade on the secondary market "
+        "at 35-55% below their original retail price. For example, a used Pixel 9 Pro 256GB in good condition typically "
+        "sells privately for £440-£520 (approx €520-€600), NOT £700+. If unboxed, without receipt, or showing wear, "
+        "value it even lower (£380-£460). Locked or network-restricted phones lose another 25%.\n"
+        "3. ACCESSORIES & CASES: Phone cases, screen protectors, and generic cables have virtually zero resale upside "
+        "(used cases rarely fetch more than £2-£8 regardless of retail price).\n"
+        "4. CONSERVATIVE APPRAISALS: Always err on the conservative side. It is far better to protect a buyer from "
+        "overpaying than to inflate expected profit margins.\n"
+        "5. NET PROFIT MARGIN: Calculated as: (Estimated Market Value - Listed Price) - (~12% marketplace & shipping fees). "
+        "A deal score of 9-10 requires exceptional net margin (35%+ below realistic used comp). Scores 5-6 represent fair "
+        "used market prices with little to no resale profit."
     )
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
@@ -121,16 +132,20 @@ Appraise the following Vinted listing:
 \"\"\"{item.description}\"\"\"
 
 Perform a professional appraisal:
-1. Estimate true fair secondary market value in {item.currency}.
+1. Estimate true fair secondary market value in {item.currency}:
+   - CRITICAL: DO NOT use brand-new retail MSRP. Use realistic peer-to-peer used sold prices (eBay completed sales, CeX used).
+   - If the listing is an accessory (case, screen protector, cable), value the accessory itself (typically 2-8 {item.currency}), NOT the device it fits.
+   - For secondhand smartphones: unboxed/used devices trade far below retail (e.g. Pixel 9 Pro 256GB used is ~440-520 {item.currency}, NOT 700+ {item.currency}).
 2. Rate the deal score (1-10):
-   - 9-10: Huge steal (listed significantly below market, highly liquid item).
-   - 7-8: Good deal (profitable or substantial personal savings).
-   - 5-6: Fair price (standard used price, minimal resale upside).
-   - 1-4: Overpriced or low-demand fast fashion.
-3. Identify condition notes (mention any wear, fading, repairs, or 'None noted - clean condition').
-4. Calculate net resale profit margin in {item.currency} (Market Value - Listed Price - estimated 12% seller fees).
+   - 9-10: Screaming bargain (listed >35% below realistic used comps, fast resale liquidity).
+   - 7-8: Good deal (20-30% below used comps, decent profit or savings).
+   - 5-6: Fair price (standard used price, negligible resale upside after 12% fees).
+   - 1-4: Overpriced or low-demand item.
+3. Identify condition notes (highlight cosmetic wear, battery/screen issues, missing accessories, or 'Clean condition').
+4. Calculate net resale profit margin in {item.currency}:
+   (Estimated Market Value - Listed Price) - (Estimated Market Value * 0.12 for platform & postage fees).
 5. Choose appropriate verdict: MUST BUY, GOOD DEAL, FAIR PRICE, or OVERPRICED.
-6. Provide a concise 1-2 sentence reasoning.
+6. Provide a concise 1-2 sentence reasoning with specific comp context.
 """
 
         for attempt in range(1, 4):
