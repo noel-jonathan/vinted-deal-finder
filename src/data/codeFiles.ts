@@ -117,6 +117,7 @@ def parse_args():
     parser.add_argument("-s", "--min-score", type=int, default=7, help="Minimum deal score threshold (1-10)")
     parser.add_argument("-o", "--output", type=str, default="best_deals.json", help="Output JSON path")
     parser.add_argument("-d", "--domain", type=str, default="vinted.co.uk", help="Vinted country domain")
+    parser.add_argument("--model", type=str, default="gemini-3.6-flash", help="Gemini model (default: gemini-3.6-flash)")
     parser.add_argument("--mock", action="store_true", help="Run with test listings catalog")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
     return parser.parse_args()
@@ -136,7 +137,7 @@ def main():
             print("Notice: Vinted returned 0 items; falling back to sample catalog.")
             raw_items = get_mock_listings(query=args.query, count=args.max_items)
 
-    analyzer = GeminiDealAnalyzer(api_key=api_key)
+    analyzer = GeminiDealAnalyzer(api_key=api_key, model=args.model)
     analyzed_items = analyzer.analyze_batch(raw_items)
 
     best_deals = [d for d in analyzed_items if d.analysis.deal_score >= args.min_score]
@@ -286,11 +287,11 @@ class VintedScraper:
   {
     name: 'analyzer.py',
     language: 'python',
-    description: 'Gemini 2.5 Flash appraisal engine using official google-genai SDK & Pydantic response_schema',
+    description: 'Gemini appraisal engine using official google-genai SDK, gemini-3.6-flash & Pydantic response_schema',
     content: `"""
 Gemini AI Deal Analyzer Module
 =============================
-Appraises Vinted secondhand listings using Google Gemini 2.5 Flash with
+Appraises Vinted secondhand listings using Google Gemini (gemini-3.6-flash) with
 structured output schemas (Pydantic), evaluating market value, deal scores,
 condition notes, and resale margins.
 """
@@ -322,7 +323,7 @@ class AnalyzedItem(BaseModel):
 
 
 class GeminiDealAnalyzer:
-    DEFAULT_MODEL = "gemini-2.5-flash"
+    DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     SYSTEM_INSTRUCTION = (
         "You are an expert vintage and secondhand fashion appraiser and deal hunter. "
@@ -331,9 +332,9 @@ class GeminiDealAnalyzer:
         "and calculate whether the listed price represents an extraordinary bargain."
     )
 
-    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = model
+        self.model = model or self.DEFAULT_MODEL
         self.client = None
 
         if self.api_key:
@@ -364,20 +365,32 @@ Perform a professional appraisal:
 6. Provide a concise 1-2 sentence reasoning.
 """
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=self.SYSTEM_INSTRUCTION,
-                response_mime_type="application/json",
-                response_schema=DealAnalysis,
-                temperature=0.2,
-            ),
-        )
+        for attempt in range(1, 4):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=self.SYSTEM_INSTRUCTION,
+                        response_mime_type="application/json",
+                        response_schema=DealAnalysis,
+                        temperature=0.2,
+                    ),
+                )
 
-        if hasattr(response, "parsed") and response.parsed:
-            return DealAnalysis(**response.parsed) if isinstance(response.parsed, dict) else response.parsed
-        return DealAnalysis.model_validate_json(response.text.strip())
+                if hasattr(response, "parsed") and response.parsed:
+                    return DealAnalysis(**response.parsed) if isinstance(response.parsed, dict) else response.parsed
+                return DealAnalysis.model_validate_json(response.text.strip())
+            except Exception as e:
+                err = str(e)
+                if "404" in err or "NOT_FOUND" in err:
+                    # Dynamically fallback if selected model is sunset
+                    self.model = "gemini-3.6-flash" if self.model != "gemini-3.6-flash" else "gemini-3.8-flash"
+                    continue
+                if attempt == 3:
+                    return self._mock_appraisal(item)
+
+        return self._mock_appraisal(item)
 
     def analyze_batch(self, items: List[VintedItem], delay_between_requests: float = 0.8) -> List[AnalyzedItem]:
         analyzed = []

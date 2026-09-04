@@ -182,6 +182,12 @@ def parse_args():
         help="Vinted country domain (e.g. vinted.co.uk, vinted.fr, vinted.de, vinted.com)",
     )
     parser.add_argument(
+        "--model",
+        type=str,
+        default=os.getenv("GEMINI_MODEL", "gemini-3.6-flash"),
+        help="Gemini model identifier (default: gemini-3.6-flash, or set via GEMINI_MODEL env)",
+    )
+    parser.add_argument(
         "--mock",
         action="store_true",
         help="Use realistic built-in mock listings (useful for testing or when Vinted blocks IP with Cloudflare)",
@@ -207,18 +213,18 @@ def main():
                 f"[bold cyan]Vinted Deal Hunter & Gemini AI Analyzer[/bold cyan]\n"
                 f"[white]Query:[/] [yellow]{args.query}[/] | [white]Max Items:[/] [magenta]{args.max_items}[/] | "
                 f"[white]Min Score:[/] [green]{args.min_score}/10[/] | [white]Domain:[/] [cyan]{args.domain}[/]\n"
-                f"[white]AI Engine:[/] [blue]Google Gemini 2.5 Flash (Structured Outputs)[/]",
+                f"[white]AI Engine:[/] [blue]Google Gemini ({args.model}) (Structured Outputs)[/]",
                 border_style="cyan",
             )
         )
     else:
-        print(f"--- Vinted Deal Hunter (Query: '{args.query}', Target: {args.max_items} items) ---")
+        print(f"--- Vinted Deal Hunter (Query: '{args.query}', Model: {args.model}) ---")
 
     if not api_key:
         msg = (
             "⚠ GEMINI_API_KEY not detected in environment or .env file.\n"
             "The analyzer will operate in heuristic offline mode.\n"
-            "To use real Gemini 2.5 Flash, set GEMINI_API_KEY in your .env file."
+            f"To use real Gemini, set GEMINI_API_KEY in your .env file."
         )
         if RICH_AVAILABLE:
             console.print(f"[yellow]{msg}[/yellow]\n")
@@ -265,12 +271,12 @@ def main():
         sys.exit(1)
 
     if RICH_AVAILABLE:
-        console.print(f"[green]✔ Retrieved {len(raw_items)} listings. Sending to Gemini 2.5 Flash for appraisal...[/green]\n")
+        console.print(f"[green]✔ Retrieved {len(raw_items)} listings. Sending to Gemini ({args.model}) for appraisal...[/green]\n")
     else:
-        print(f"Retrieved {len(raw_items)} listings. Sending to Gemini 2.5 Flash...")
+        print(f"Retrieved {len(raw_items)} listings. Sending to Gemini ({args.model})...")
 
     # Step 2: Analyze with Gemini AI
-    analyzer = GeminiDealAnalyzer(api_key=api_key)
+    analyzer = GeminiDealAnalyzer(api_key=api_key, model=args.model)
     analyzed_items = analyzer.analyze_batch(raw_items)
 
     # Step 3: Filter deals with deal_score >= min_score and sort descending

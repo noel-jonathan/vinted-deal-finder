@@ -58,11 +58,11 @@ class AnalyzedItem(BaseModel):
 
 class GeminiDealAnalyzer:
     """
-    Appraiser service leveraging Google Gemini 2.5 Flash to evaluate listings.
+    Appraiser service leveraging Google Gemini to evaluate listings.
     Uses structured Pydantic response schemas and the official google-genai SDK.
     """
 
-    DEFAULT_MODEL = "gemini-2.5-flash"
+    DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     SYSTEM_INSTRUCTION = (
         "You are an expert vintage and secondhand fashion appraiser, reseller, and deal hunter. "
@@ -75,15 +75,15 @@ class GeminiDealAnalyzer:
         "Be rigorous, realistic, and objective: do not inflate scores for generic or low-demand fast fashion."
     )
 
-    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """
         Initialize Gemini Client.
 
         :param api_key: Google Gemini API Key. If None, loaded from GEMINI_API_KEY env var.
-        :param model: Gemini model identifier (defaults to gemini-2.5-flash).
+        :param model: Gemini model identifier (defaults to GEMINI_MODEL env var or gemini-3.6-flash).
         """
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = model
+        self.model = model or self.DEFAULT_MODEL
         self.client = None
 
         if self.api_key:
@@ -156,8 +156,24 @@ Perform a professional appraisal:
                 return DealAnalysis.model_validate_json(raw_json)
 
             except Exception as e:
+                err_str = str(e)
                 logger.warning(f"Gemini API attempt {attempt} failed for item '{item.id}': {e}")
-                if "429" in str(e) or "ResourceExhausted" in str(e):
+                
+                # Check for model sunset / 404 NOT_FOUND and dynamically fallback to supported models
+                if "404" in err_str or "NOT_FOUND" in err_str or "not available" in err_str.lower():
+                    fallback_models = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-2.5-flash"]
+                    switched = False
+                    for candidate in fallback_models:
+                        if candidate != self.model:
+                            logger.info(f"Model '{self.model}' unavailable for this API key. Automatically switching to '{candidate}'...")
+                            self.model = candidate
+                            switched = True
+                            break
+                    if switched:
+                        time.sleep(0.5)
+                        continue
+
+                if "429" in err_str or "ResourceExhausted" in err_str:
                     backoff = 3 * attempt
                     logger.info(f"Rate limited by Gemini. Sleeping for {backoff}s...")
                     time.sleep(backoff)
